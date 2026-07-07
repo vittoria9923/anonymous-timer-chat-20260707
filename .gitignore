@@ -5,6 +5,8 @@ skills-lock.json
 .env
 .DS_Store
 npm-debug.log*
+test-results/
+playwright-report/
 
 # Local Netlify folder
 .netlify

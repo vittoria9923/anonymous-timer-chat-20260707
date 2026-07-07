@@ -1,4 +1,5 @@
-const chatServerUrl = window.CHAT_SERVER_URL?.trim();
+const isLocalHost = ["localhost", "127.0.0.1"].includes(location.hostname);
+const chatServerUrl = isLocalHost ? "" : window.CHAT_SERVER_URL?.trim();
 const roomId = readRoomId();
 const needsServerUrl = !chatServerUrl && location.hostname.endsWith(".netlify.app");
 const socket = !roomId || needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined, { auth: { room: roomId } });

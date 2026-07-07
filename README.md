@@ -58,3 +58,9 @@ window.CHAT_SERVER_URL = "https://your-render-app.onrender.com";
 ```text
 https://anonymous-timer-chat-20260707.netlify.app
 ```
+
+현재 생성된 Render 서버:
+
+```text
+https://anonymous-timer-chat.onrender.com
+```

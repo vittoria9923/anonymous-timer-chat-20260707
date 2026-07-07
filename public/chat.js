@@ -25,12 +25,45 @@ const themes = [
   { label: "redacted", color: "#ef4444" },
   { label: "snapshot risk", color: "#3b82f6" }
 ];
+const emojiOptions = [
+  { emoji: "😀", label: "웃음 happy smile" },
+  { emoji: "😂", label: "폭소 laugh" },
+  { emoji: "🤣", label: "빵터짐 rofl" },
+  { emoji: "😊", label: "미소 smile" },
+  { emoji: "😍", label: "좋아 love" },
+  { emoji: "😎", label: "멋짐 cool" },
+  { emoji: "😭", label: "울음 sad cry" },
+  { emoji: "😡", label: "화남 angry" },
+  { emoji: "😱", label: "놀람 shock" },
+  { emoji: "🤔", label: "생각 think" },
+  { emoji: "👍", label: "좋아요 like" },
+  { emoji: "👎", label: "싫어요 dislike" },
+  { emoji: "👏", label: "박수 clap" },
+  { emoji: "🙌", label: "만세 celebrate" },
+  { emoji: "🙏", label: "감사 pray" },
+  { emoji: "💪", label: "힘 strength" },
+  { emoji: "🔥", label: "불 fire hot" },
+  { emoji: "✨", label: "반짝 sparkles" },
+  { emoji: "🎉", label: "축하 party" },
+  { emoji: "💯", label: "백점 perfect" },
+  { emoji: "❤️", label: "하트 love heart" },
+  { emoji: "💔", label: "깨진 하트 broken" },
+  { emoji: "👀", label: "봄 eyes" },
+  { emoji: "💀", label: "해골 skull" },
+  { emoji: "🤫", label: "비밀 quiet" },
+  { emoji: "🫡", label: "경례 salute" },
+  { emoji: "🤯", label: "충격 mind blown" },
+  { emoji: "😴", label: "졸림 sleep" },
+  { emoji: "🍀", label: "행운 lucky" },
+  { emoji: "🚀", label: "로켓 launch" }
+];
 const state = {
   profile: loadProfile(),
   image: "",
   tickTimer: null,
   isAdmin: false,
-  locked: false
+  locked: false,
+  reactionTargetId: ""
 };
 const socket = needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined, { auth: { room: roomId, profile: state.profile } });
 
@@ -51,6 +84,10 @@ const elements = {
   lockRoom: document.querySelector("#lockRoom"),
   notice: document.querySelector("#notice"),
   toasts: document.querySelector("#toasts"),
+  emojiPicker: document.querySelector("#emojiPicker"),
+  emojiSearch: document.querySelector("#emojiSearch"),
+  emojiGrid: document.querySelector("#emojiGrid"),
+  closeEmojiPicker: document.querySelector("#closeEmojiPicker"),
   messages: document.querySelector("#messages"),
   form: document.querySelector("#chatForm"),
   input: document.querySelector("#messageInput"),
@@ -64,6 +101,7 @@ const elements = {
 renderProfile();
 renderRoom();
 renderProfileMode();
+renderEmojiGrid();
 startCountdown();
 
 if (!roomId) {
@@ -207,6 +245,16 @@ elements.imageInput.addEventListener("change", async () => {
 });
 
 elements.clearImage.addEventListener("click", clearImage);
+elements.closeEmojiPicker.addEventListener("click", closeEmojiPicker);
+elements.emojiSearch.addEventListener("input", () => renderEmojiGrid(elements.emojiSearch.value));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeEmojiPicker();
+});
+document.addEventListener("click", (event) => {
+  if (elements.emojiPicker.hidden) return;
+  if (elements.emojiPicker.contains(event.target) || event.target.closest(".add-reaction")) return;
+  closeEmojiPicker();
+});
 
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -310,10 +358,9 @@ function renderMessage(message) {
   addReaction.type = "button";
   addReaction.className = "add-reaction";
   addReaction.textContent = "+ 이모지";
-  addReaction.addEventListener("click", () => {
-    const emoji = prompt("달 이모지를 입력하세요. 예: 🔥");
-    if (!emoji) return;
-    socket.emit("chat:react", { id: message.id, emoji: emoji.trim() });
+  addReaction.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openEmojiPicker(message.id, addReaction);
   });
   reactionBar.append(addReaction);
   body.append(reactionBar);
@@ -377,6 +424,50 @@ function updateReactions(id, counts) {
     button.textContent = `${emoji} ${count}`;
     button.addEventListener("click", () => socket.emit("chat:react", { id, emoji }));
     list.append(button);
+  });
+}
+
+function openEmojiPicker(messageId, anchor) {
+  state.reactionTargetId = messageId;
+  elements.emojiSearch.value = "";
+  renderEmojiGrid();
+
+  const rect = anchor.getBoundingClientRect();
+  const pickerWidth = 330;
+  const left = Math.min(window.innerWidth - pickerWidth - 12, Math.max(12, rect.left));
+  const top = Math.min(window.innerHeight - 410, rect.bottom + 8);
+
+  elements.emojiPicker.style.left = `${left}px`;
+  elements.emojiPicker.style.top = `${Math.max(12, top)}px`;
+  elements.emojiPicker.hidden = false;
+  elements.emojiSearch.focus();
+}
+
+function closeEmojiPicker() {
+  state.reactionTargetId = "";
+  elements.emojiPicker.hidden = true;
+}
+
+function renderEmojiGrid(query = "") {
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = emojiOptions.filter((option) => {
+    return !normalizedQuery || option.label.toLowerCase().includes(normalizedQuery) || option.emoji.includes(normalizedQuery);
+  });
+
+  elements.emojiGrid.replaceChildren();
+  filtered.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = option.emoji;
+    button.title = option.label;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-label", option.emoji);
+    button.addEventListener("click", () => {
+      if (!state.reactionTargetId) return;
+      socket.emit("chat:react", { id: state.reactionTargetId, emoji: option.emoji });
+      closeEmojiPicker();
+    });
+    elements.emojiGrid.append(button);
   });
 }
 

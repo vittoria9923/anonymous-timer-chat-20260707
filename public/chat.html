@@ -92,6 +92,14 @@
     </main>
 
     <div id="toasts" class="toasts" aria-live="polite" aria-label="알림"></div>
+    <section id="emojiPicker" class="emoji-picker" aria-label="이모지 선택" hidden>
+      <header>
+        <strong>이모지</strong>
+        <button id="closeEmojiPicker" type="button" aria-label="이모지 선택 닫기">닫기</button>
+      </header>
+      <input id="emojiSearch" type="search" placeholder="이모지 검색" autocomplete="off" />
+      <div id="emojiGrid" class="emoji-grid" role="listbox"></div>
+    </section>
 
     <script src="/config.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>

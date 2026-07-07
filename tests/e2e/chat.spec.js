@@ -38,11 +38,10 @@ test("public room supports realtime message, reactions, admin delete, and expiry
   await expect(messageOnB).toBeVisible();
   await expect(messageOnA.locator(".seen-count")).toContainText("2명이 봄");
 
-  pageB.once("dialog", async (dialog) => {
-    expect(dialog.message()).toContain("이모지");
-    await dialog.accept("🔥");
-  });
   await messageOnB.getByRole("button", { name: "+ 이모지" }).click();
+  await expect(pageB.locator("#emojiPicker")).toBeVisible();
+  await pageB.locator("#emojiSearch").fill("fire");
+  await pageB.locator("#emojiGrid").getByRole("option", { name: "🔥" }).click();
   await expect(messageOnA.getByRole("button", { name: /🔥 1/ })).toBeVisible();
 
   pageA.once("dialog", async (dialog) => {

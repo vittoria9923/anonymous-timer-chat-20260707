@@ -2,9 +2,9 @@ const isLocalHost = ["localhost", "127.0.0.1"].includes(location.hostname);
 const chatServerUrl = isLocalHost ? "" : window.CHAT_SERVER_URL?.trim();
 const roomId = readRoomId();
 const needsServerUrl = !chatServerUrl && location.hostname.endsWith(".netlify.app");
-const socket = needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined, { auth: { room: roomId } });
 
 const profileKey = "anonymous-chat-profile";
+const roomProfileModeKey = "anonymous-chat-room-profile-mode";
 const names = [
   "밤하늘 고래",
   "초록 유성",
@@ -31,13 +31,18 @@ const state = {
   profile: loadProfile(),
   image: "",
   tickTimer: null,
-  isAdmin: false
+  isAdmin: false,
+  locked: false
 };
+const socket = needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined, { auth: { room: roomId, profile: state.profile } });
 
 const elements = {
   watermark: document.querySelector("#watermark"),
   roomName: document.querySelector("#roomName"),
   onlineCount: document.querySelector("#onlineCount"),
+  lockStatus: document.querySelector("#lockStatus"),
+  memberList: document.querySelector("#memberList"),
+  roomProfileMode: document.querySelector("#roomProfileMode"),
   copyInvite: document.querySelector("#copyInvite"),
   myName: document.querySelector("#myName"),
   myAvatar: document.querySelector("#myAvatar"),
@@ -45,7 +50,9 @@ const elements = {
   status: document.querySelector("#connectionStatus"),
   reroll: document.querySelector("#rerollProfile"),
   admin: document.querySelector("#adminMode"),
+  lockRoom: document.querySelector("#lockRoom"),
   notice: document.querySelector("#notice"),
+  toasts: document.querySelector("#toasts"),
   messages: document.querySelector("#messages"),
   form: document.querySelector("#chatForm"),
   input: document.querySelector("#messageInput"),
@@ -59,6 +66,7 @@ const elements = {
 
 renderProfile();
 renderRoom();
+renderProfileMode();
 startCountdown();
 
 if (!roomId) {
@@ -73,16 +81,30 @@ socket.on("connect", () => {
 });
 
 socket.on("disconnect", () => {
+  if (state.locked) return;
   elements.status.textContent = "연결 끊김";
 });
 
 socket.on("room:info", (room) => {
-  elements.roomName.textContent = `room: ${room.roomId}`;
-  elements.onlineCount.textContent = `${room.memberCount}명 접속`;
+  renderRoomInfo(room);
 });
 
 socket.on("room:presence", (room) => {
-  elements.onlineCount.textContent = `${room.memberCount}명 접속`;
+  renderRoomInfo(room);
+});
+
+socket.on("room:lock", ({ locked }) => {
+  state.locked = Boolean(locked);
+  renderLockState();
+  showNotice(state.locked ? "관리자가 방 입장을 잠갔습니다." : "방 입장 잠금이 해제되었습니다.");
+});
+
+socket.on("room:locked", () => {
+  state.locked = true;
+  elements.status.textContent = "잠긴 방";
+  renderLockState();
+  setComposerDisabled(true);
+  showNotice("이 방은 잠겨 있어 새로 입장할 수 없습니다.");
 });
 
 socket.on("chat:init", (messages) => {
@@ -123,8 +145,16 @@ elements.copyInvite.addEventListener("click", async () => {
 
 elements.reroll.addEventListener("click", () => {
   state.profile = createProfile();
-  localStorage.setItem(profileKey, JSON.stringify(state.profile));
+  saveProfile(state.profile);
   renderProfile();
+  socket.emit("profile:update", { profile: state.profile });
+  showNotice("새 익명 프로필을 뽑았습니다.");
+});
+
+elements.roomProfileMode.addEventListener("change", () => {
+  localStorage.setItem(roomProfileModeKey, elements.roomProfileMode.checked ? "room" : "global");
+  saveProfile(createProfile());
+  location.reload();
 });
 
 elements.admin.addEventListener("click", () => {
@@ -145,8 +175,22 @@ elements.admin.addEventListener("click", () => {
 
     state.isAdmin = true;
     document.body.classList.add("admin-active");
+    elements.lockRoom.hidden = false;
     elements.admin.textContent = "방 초기화";
     showNotice("관리자 모드가 켜졌습니다.");
+  });
+});
+
+elements.lockRoom.addEventListener("click", () => {
+  socket.emit("admin:lock", { locked: !state.locked }, (response) => {
+    if (!response?.ok) {
+      showNotice(response?.error || "방 잠금을 바꿀 수 없습니다.");
+      return;
+    }
+
+    state.locked = response.locked;
+    renderLockState();
+    showNotice(state.locked ? "방을 잠갔습니다." : "방 잠금을 해제했습니다.");
   });
 });
 
@@ -329,15 +373,23 @@ function updateReactions(id, counts) {
 
 function loadProfile() {
   try {
-    const saved = JSON.parse(localStorage.getItem(profileKey));
+    const saved = JSON.parse(localStorage.getItem(getActiveProfileKey()));
     if (saved?.name && saved?.avatar && saved?.theme) return saved;
   } catch (_error) {
-    localStorage.removeItem(profileKey);
+    localStorage.removeItem(getActiveProfileKey());
   }
 
   const profile = createProfile();
-  localStorage.setItem(profileKey, JSON.stringify(profile));
+  saveProfile(profile);
   return profile;
+}
+
+function saveProfile(profile) {
+  localStorage.setItem(getActiveProfileKey(), JSON.stringify(profile));
+}
+
+function getActiveProfileKey() {
+  return localStorage.getItem(roomProfileModeKey) === "room" ? `${profileKey}:${roomId}` : profileKey;
 }
 
 function createProfile() {
@@ -360,6 +412,42 @@ function renderRoom() {
   elements.roomName.textContent = `room: ${roomId}`;
 }
 
+function renderRoomInfo(room) {
+  state.locked = Boolean(room.locked);
+  elements.roomName.textContent = `room: ${room.roomId}`;
+  elements.onlineCount.textContent = `${room.memberCount}명 접속`;
+  renderLockState();
+  renderMembers(room.members || []);
+}
+
+function renderProfileMode() {
+  elements.roomProfileMode.checked = localStorage.getItem(roomProfileModeKey) === "room";
+}
+
+function renderLockState() {
+  elements.lockStatus.textContent = state.locked ? "입장 잠김" : "입장 가능";
+  elements.lockStatus.classList.toggle("locked", state.locked);
+  elements.lockRoom.textContent = state.locked ? "잠금 해제" : "방 잠금";
+}
+
+function renderMembers(members) {
+  elements.memberList.replaceChildren();
+  members.forEach((member) => {
+    const item = document.createElement("li");
+    const avatar = document.createElement("span");
+    const name = document.createElement("strong");
+    const theme = document.createElement("em");
+
+    avatar.textContent = member.avatar;
+    avatar.style.backgroundColor = member.theme?.color || "#faff69";
+    name.textContent = member.name;
+    theme.textContent = member.theme?.label || "unknown";
+
+    item.append(avatar, name, theme);
+    elements.memberList.append(item);
+  });
+}
+
 function clearImage() {
   state.image = "";
   elements.imageInput.value = "";
@@ -378,9 +466,26 @@ function readAsDataUrl(file) {
 
 function showNotice(text) {
   elements.notice.textContent = text;
+  showToast(text);
   setTimeout(() => {
     if (elements.notice.textContent === text) elements.notice.textContent = "";
   }, 3000);
+}
+
+function showToast(text) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = text;
+  elements.toasts.append(toast);
+  setTimeout(() => toast.remove(), 3600);
+}
+
+function setComposerDisabled(disabled) {
+  elements.input.disabled = disabled;
+  elements.imageInput.disabled = disabled;
+  elements.ttl.disabled = disabled;
+  elements.style.disabled = disabled;
+  elements.form.querySelector("button[type='submit']").disabled = disabled;
 }
 
 function handleAck(successText) {

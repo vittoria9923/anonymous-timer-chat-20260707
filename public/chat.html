@@ -30,6 +30,12 @@
           <div class="room-panel">
             <span id="roomName">room: loading</span>
             <span id="onlineCount">0명 접속</span>
+            <span id="lockStatus">입장 가능</span>
+            <ul id="memberList" class="member-list" aria-label="현재 접속자"></ul>
+            <label class="room-profile-toggle" for="roomProfileMode">
+              <input id="roomProfileMode" type="checkbox" />
+              <span>이 방에서만 새 익명 프로필 사용</span>
+            </label>
             <button id="copyInvite" type="button">초대 링크 복사</button>
           </div>
         </div>
@@ -45,6 +51,7 @@
               </div>
             </div>
             <div class="header-actions">
+              <button id="lockRoom" type="button" hidden>방 잠금</button>
               <button id="adminMode" type="button">관리자</button>
               <button id="rerollProfile" type="button">프로필 다시 뽑기</button>
             </div>
@@ -93,6 +100,8 @@
         </section>
       </section>
     </main>
+
+    <div id="toasts" class="toasts" aria-live="polite" aria-label="알림"></div>
 
     <script src="/config.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>

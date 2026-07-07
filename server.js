@@ -46,12 +46,21 @@ app.get("*", (_req, res) => {
 io.on("connection", (socket) => {
   const roomId = normalizeRoom(socket.handshake.auth?.room || socket.handshake.query?.room);
   const room = getRoom(roomId);
+  const profile = normalizeProfile(socket.handshake.auth?.profile);
+
+  if (room.locked && !room.members.has(socket.id)) {
+    socket.emit("room:locked", { roomId });
+    socket.disconnect(true);
+    return;
+  }
 
   socket.data.roomId = roomId;
+  socket.data.profile = profile;
   socket.join(roomId);
   room.members.add(socket.id);
+  room.profiles.set(socket.id, profile);
 
-  socket.emit("room:info", { roomId, memberCount: room.members.size });
+  socket.emit("room:info", serializeRoom(roomId, room));
   socket.emit("chat:init", getVisibleMessages(room));
   emitPresence(roomId);
   socket.to(roomId).emit("chat:notice", "익명 사용자가 들어왔습니다.");
@@ -73,6 +82,14 @@ io.on("connection", (socket) => {
     io.to(socket.data.roomId).emit("chat:message", serializeMessage(activeRoom, result.message));
 
     if (typeof ack === "function") ack({ ok: true });
+  });
+
+  socket.on("profile:update", (payload = {}) => {
+    const activeRoom = getSocketRoom(socket);
+    const profile = normalizeProfile(payload.profile);
+    socket.data.profile = profile;
+    activeRoom.profiles.set(socket.id, profile);
+    emitPresence(socket.data.roomId);
   });
 
   socket.on("chat:seen", (payload = {}) => {
@@ -115,7 +132,21 @@ io.on("connection", (socket) => {
 
     const activeRoom = getSocketRoom(socket);
     activeRoom.admins.add(socket.id);
+    socket.emit("room:info", serializeRoom(socket.data.roomId, activeRoom));
     if (typeof ack === "function") ack({ ok: true });
+  });
+
+  socket.on("admin:lock", (payload = {}, ack) => {
+    const activeRoom = getSocketRoom(socket);
+    if (!activeRoom.admins.has(socket.id)) {
+      if (typeof ack === "function") ack({ ok: false, error: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    activeRoom.locked = Boolean(payload.locked);
+    io.to(socket.data.roomId).emit("room:lock", { locked: activeRoom.locked });
+    emitPresence(socket.data.roomId);
+    if (typeof ack === "function") ack({ ok: true, locked: activeRoom.locked });
   });
 
   socket.on("admin:delete", (payload = {}, ack) => {
@@ -154,6 +185,7 @@ io.on("connection", (socket) => {
     const activeRoom = getSocketRoom(socket);
     activeRoom.members.delete(socket.id);
     activeRoom.admins.delete(socket.id);
+    activeRoom.profiles.delete(socket.id);
     socket.to(socket.data.roomId).emit("chat:notice", "익명 사용자가 나갔습니다.");
     emitPresence(socket.data.roomId);
   });
@@ -165,8 +197,10 @@ function getRoom(roomId) {
       messages: new Map(),
       members: new Set(),
       admins: new Set(),
+      profiles: new Map(),
       seen: new Map(),
-      reactions: new Map()
+      reactions: new Map(),
+      locked: false
     });
   }
 
@@ -258,7 +292,21 @@ function deleteMessage(roomId, id) {
 
 function emitPresence(roomId) {
   const room = getRoom(roomId);
-  io.to(roomId).emit("room:presence", { roomId, memberCount: room.members.size });
+  io.to(roomId).emit("room:presence", serializeRoom(roomId, room));
+}
+
+function serializeRoom(roomId, room) {
+  return {
+    roomId,
+    memberCount: room.members.size,
+    locked: room.locked,
+    members: Array.from(room.members).map((id) => ({
+      id,
+      name: room.profiles.get(id)?.name || "익명 손님",
+      avatar: room.profiles.get(id)?.avatar || "?",
+      theme: room.profiles.get(id)?.theme || { label: "unknown", color: "#faff69" }
+    }))
+  };
 }
 
 function isValidImageDataUrl(value) {
@@ -291,6 +339,18 @@ function normalizeTheme(value) {
   return {
     label: typeof value.label === "string" ? value.label.slice(0, 20) : "unknown",
     color: typeof value.color === "string" && /^#[0-9a-f]{6}$/i.test(value.color) ? value.color : "#faff69"
+  };
+}
+
+function normalizeProfile(value) {
+  if (!value || typeof value !== "object") {
+    return { name: "익명 손님", avatar: "?", theme: { label: "unknown", color: "#faff69" } };
+  }
+
+  return {
+    name: normalizeName(value.name),
+    avatar: normalizeAvatar(value.avatar),
+    theme: normalizeTheme(value.theme)
   };
 }
 

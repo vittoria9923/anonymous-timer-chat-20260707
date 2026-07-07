@@ -22,6 +22,12 @@ test("public room supports realtime message, reactions, admin delete, and expiry
   await expect(pageA.locator("#roomName")).toHaveText(`room: ${room}`);
   await expect(pageA.locator("#onlineCount")).toContainText("2명 접속");
   await expect(pageB.locator("#onlineCount")).toContainText("2명 접속");
+  await expect(pageA.locator("#memberList li")).toHaveCount(2);
+
+  await pageA.locator("#roomProfileMode").check();
+  await pageA.waitForLoadState("domcontentloaded");
+  await expect(pageA.locator("#roomProfileMode")).toBeChecked();
+  await expect(pageB.locator("#onlineCount")).toContainText("2명 접속");
 
   await pageA.locator("#ttlInput").selectOption("5");
   await pageA.locator("#styleInput").selectOption("question");
@@ -43,6 +49,17 @@ test("public room supports realtime message, reactions, admin delete, and expiry
   });
   await pageA.getByRole("button", { name: "관리자" }).click();
   await expect(pageA.locator("#notice")).toHaveText("관리자 모드가 켜졌습니다.");
+  await pageA.getByRole("button", { name: "방 잠금" }).click();
+  await expect(pageA.locator("#lockStatus")).toHaveText("입장 잠김");
+  await expect(pageA.locator(".toast", { hasText: "방을 잠갔습니다." })).toBeVisible();
+
+  const contextC = await browser.newContext();
+  const pageC = await contextC.newPage();
+  await pageC.goto(`/room/${room}`);
+  await expect(pageC.locator("#connectionStatus")).toHaveText("잠긴 방");
+  await expect(pageC.locator("#notice")).toHaveText("이 방은 잠겨 있어 새로 입장할 수 없습니다.");
+  await contextC.close();
+
   await messageOnA.getByRole("button", { name: "관리자 삭제" }).click();
   await expect(messageOnB).toBeHidden();
 

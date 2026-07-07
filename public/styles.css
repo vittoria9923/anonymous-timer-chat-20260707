@@ -460,6 +460,72 @@ pre {
   font-size: 13px;
 }
 
+#lockStatus.locked {
+  color: #ffb4b4;
+}
+
+.member-list {
+  display: grid;
+  gap: 8px;
+  max-height: 180px;
+  margin: 4px 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.member-list li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 4px 8px;
+  align-items: center;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--surface-soft);
+}
+
+.member-list li span {
+  grid-row: span 2;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  color: var(--canvas);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.member-list strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.member-list em {
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.room-profile-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.room-profile-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
 .room-panel button {
   min-height: 40px;
   border: 0;
@@ -834,6 +900,36 @@ select {
 
 .deploy-band p {
   color: rgba(10, 10, 10, 0.78);
+}
+
+.toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 40px));
+  pointer-events: none;
+}
+
+.toast {
+  border: 1px solid var(--hairline-strong);
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(26, 26, 26, 0.96);
+  color: var(--body-strong);
+  font-size: 14px;
+  line-height: 1.45;
+  animation: toast-in 180ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 @keyframes pop {

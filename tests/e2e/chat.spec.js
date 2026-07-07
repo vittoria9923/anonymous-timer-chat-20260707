@@ -30,18 +30,20 @@ test("public room supports realtime message, reactions, admin delete, and expiry
   await expect(pageB.locator("#onlineCount")).toContainText("2명 접속");
 
   await pageA.locator("#ttlInput").selectOption("5");
-  await pageA.locator("#styleInput").selectOption("question");
   await pageA.locator("#messageInput").fill("e2e disappearing question");
   await pageA.getByRole("button", { name: "보내기" }).click();
 
   const messageOnA = pageA.locator(".message", { hasText: "e2e disappearing question" });
   const messageOnB = pageB.locator(".message", { hasText: "e2e disappearing question" });
   await expect(messageOnB).toBeVisible();
-  await expect(messageOnB.locator(".style-label")).toHaveText("질문");
   await expect(messageOnA.locator(".seen-count")).toContainText("2명이 봄");
 
-  await messageOnB.getByRole("button", { name: /좋아요/ }).click();
-  await expect(messageOnA.getByRole("button", { name: /좋아요 1/ })).toBeVisible();
+  pageB.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("이모지");
+    await dialog.accept("🔥");
+  });
+  await messageOnB.getByRole("button", { name: "+ 이모지" }).click();
+  await expect(messageOnA.getByRole("button", { name: /🔥 1/ })).toBeVisible();
 
   pageA.once("dialog", async (dialog) => {
     expect(dialog.message()).toContain("관리자 비밀번호");

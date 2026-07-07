@@ -8,8 +8,6 @@ const MAX_IMAGE_BYTES = 900 * 1024;
 const MIN_TTL_SECONDS = 5;
 const MAX_TTL_SECONDS = 120;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin-vanish";
-const REACTIONS = new Set(["ㅋㅋ", "좋아요", "놀람", "비밀"]);
-const MESSAGE_STYLES = new Set(["normal", "whisper", "question", "warning"]);
 
 const app = express();
 const server = http.createServer(app);
@@ -106,8 +104,8 @@ io.on("connection", (socket) => {
   socket.on("chat:react", (payload = {}) => {
     const activeRoom = getSocketRoom(socket);
     const id = typeof payload.id === "string" ? payload.id : "";
-    const emoji = typeof payload.emoji === "string" ? payload.emoji : "";
-    if (!activeRoom.messages.has(id) || !REACTIONS.has(emoji)) return;
+    const emoji = normalizeReaction(payload.emoji);
+    if (!activeRoom.messages.has(id) || !emoji) return;
 
     const reactions = activeRoom.reactions.get(id) || new Map();
     const reactors = reactions.get(emoji) || new Set();
@@ -233,7 +231,6 @@ function createMessage(socketId, payload = {}) {
 
   const now = Date.now();
   const id = `${now}-${Math.random().toString(36).slice(2)}`;
-  const style = MESSAGE_STYLES.has(payload.style) ? payload.style : "normal";
 
   return {
     ok: true,
@@ -243,7 +240,6 @@ function createMessage(socketId, payload = {}) {
       name: normalizeName(payload.name),
       avatar: normalizeAvatar(payload.avatar),
       theme: normalizeTheme(payload.theme),
-      style,
       text,
       image,
       createdAt: now,
@@ -352,6 +348,13 @@ function normalizeProfile(value) {
     avatar: normalizeAvatar(value.avatar),
     theme: normalizeTheme(value.theme)
   };
+}
+
+function normalizeReaction(value) {
+  if (typeof value !== "string") return "";
+  const emoji = value.trim().slice(0, 16);
+  if (!emoji || /[\w\s<>`]/.test(emoji)) return "";
+  return emoji;
 }
 
 function clamp(value, min, max) {

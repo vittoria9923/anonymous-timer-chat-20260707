@@ -25,8 +25,6 @@ const themes = [
   { label: "redacted", color: "#ef4444" },
   { label: "snapshot risk", color: "#3b82f6" }
 ];
-const reactions = ["ㅋㅋ", "좋아요", "놀람", "비밀"];
-
 const state = {
   profile: loadProfile(),
   image: "",
@@ -58,7 +56,6 @@ const elements = {
   input: document.querySelector("#messageInput"),
   imageInput: document.querySelector("#imageInput"),
   ttl: document.querySelector("#ttlInput"),
-  style: document.querySelector("#styleInput"),
   imagePreview: document.querySelector("#imagePreview"),
   previewImg: document.querySelector("#previewImg"),
   clearImage: document.querySelector("#clearImage")
@@ -228,7 +225,6 @@ elements.form.addEventListener("submit", (event) => {
       name: state.profile.name,
       avatar: state.profile.avatar,
       theme: state.profile.theme,
-      style: elements.style.value,
       text,
       image: state.image,
       ttlSeconds: Number(elements.ttl.value)
@@ -254,7 +250,7 @@ function renderMessage(message) {
   if (existing) existing.remove();
 
   const row = document.createElement("article");
-  row.className = `message style-${message.style || "normal"} ${message.senderId === socket.id ? "own" : ""}`;
+  row.className = `message ${message.senderId === socket.id ? "own" : ""}`;
   row.dataset.messageId = message.id;
   row.dataset.createdAt = String(message.createdAt);
   row.dataset.expiresAt = String(message.expiresAt);
@@ -269,9 +265,8 @@ function renderMessage(message) {
 
   const meta = document.createElement("div");
   meta.className = "message-meta";
-  meta.innerHTML = `<strong></strong><span class="style-label"></span><span class="seen-count"></span><span class="time-left"></span>`;
+  meta.innerHTML = `<strong></strong><span class="seen-count"></span><span class="time-left"></span>`;
   meta.querySelector("strong").textContent = message.name;
-  meta.querySelector(".style-label").textContent = getStyleLabel(message.style);
   meta.querySelector(".seen-count").textContent = `${message.seenCount || 0}명이 봄`;
   body.append(meta);
 
@@ -306,14 +301,21 @@ function renderMessage(message) {
 
   const reactionBar = document.createElement("div");
   reactionBar.className = "reaction-bar";
-  reactions.forEach((emoji) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.emoji = emoji;
-    button.textContent = `${emoji} 0`;
-    button.addEventListener("click", () => socket.emit("chat:react", { id: message.id, emoji }));
-    reactionBar.append(button);
+
+  const reactionList = document.createElement("div");
+  reactionList.className = "reaction-list";
+  reactionBar.append(reactionList);
+
+  const addReaction = document.createElement("button");
+  addReaction.type = "button";
+  addReaction.className = "add-reaction";
+  addReaction.textContent = "+ 이모지";
+  addReaction.addEventListener("click", () => {
+    const emoji = prompt("달 이모지를 입력하세요. 예: 🔥");
+    if (!emoji) return;
+    socket.emit("chat:react", { id: message.id, emoji: emoji.trim() });
   });
+  reactionBar.append(addReaction);
   body.append(reactionBar);
 
   const adminDelete = document.createElement("button");
@@ -365,9 +367,16 @@ function updateReactions(id, counts) {
   const row = getMessage(id);
   if (!row) return;
 
-  row.querySelectorAll("[data-emoji]").forEach((button) => {
-    const emoji = button.dataset.emoji;
-    button.textContent = `${emoji} ${counts[emoji] || 0}`;
+  const list = row.querySelector(".reaction-list");
+  list.replaceChildren();
+
+  Object.entries(counts).forEach(([emoji, count]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.emoji = emoji;
+    button.textContent = `${emoji} ${count}`;
+    button.addEventListener("click", () => socket.emit("chat:react", { id, emoji }));
+    list.append(button);
   });
 }
 
@@ -485,7 +494,6 @@ function setComposerDisabled(disabled) {
   elements.input.disabled = disabled;
   elements.imageInput.disabled = disabled;
   elements.ttl.disabled = disabled;
-  elements.style.disabled = disabled;
   elements.form.querySelector("button[type='submit']").disabled = disabled;
 }
 
@@ -506,15 +514,6 @@ function getMessage(id) {
 
 function scrollToBottom() {
   elements.messages.scrollTop = elements.messages.scrollHeight;
-}
-
-function getStyleLabel(style) {
-  return {
-    normal: "기본",
-    whisper: "속삭임",
-    question: "질문",
-    warning: "경고"
-  }[style || "normal"];
 }
 
 function readRoomId() {

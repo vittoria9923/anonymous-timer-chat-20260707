@@ -631,20 +631,6 @@ pre {
   background: var(--surface-elevated);
 }
 
-.style-whisper .message-body {
-  border-style: dashed;
-  background: #171717;
-}
-
-.style-question .message-body {
-  border-color: rgba(59, 130, 246, 0.7);
-}
-
-.style-warning .message-body {
-  border-color: rgba(250, 255, 105, 0.8);
-  background: #252515;
-}
-
 .message.own {
   grid-template-columns: 1fr 44px;
 }
@@ -684,7 +670,6 @@ pre {
   color: var(--ink);
 }
 
-.style-label,
 .seen-count,
 .message-theme {
   color: var(--muted);
@@ -704,10 +689,18 @@ pre {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
   margin-top: 12px;
 }
 
-.reaction-bar button,
+.reaction-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reaction-list button,
+.add-reaction,
 .admin-delete {
   min-height: 30px;
   border: 1px solid var(--hairline-strong);

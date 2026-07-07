@@ -2,7 +2,7 @@ const isLocalHost = ["localhost", "127.0.0.1"].includes(location.hostname);
 const chatServerUrl = isLocalHost ? "" : window.CHAT_SERVER_URL?.trim();
 const roomId = readRoomId();
 const needsServerUrl = !chatServerUrl && location.hostname.endsWith(".netlify.app");
-const socket = !roomId || needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined, { auth: { room: roomId } });
+const socket = needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined, { auth: { room: roomId } });
 
 const profileKey = "anonymous-chat-profile";
 const names = [
@@ -36,10 +36,6 @@ const state = {
 
 const elements = {
   watermark: document.querySelector("#watermark"),
-  createRoom: document.querySelector("#createRoom"),
-  publicRoom: document.querySelector("#publicRoom"),
-  joinForm: document.querySelector("#joinForm"),
-  joinRoomInput: document.querySelector("#joinRoomInput"),
   roomName: document.querySelector("#roomName"),
   onlineCount: document.querySelector("#onlineCount"),
   copyInvite: document.querySelector("#copyInvite"),
@@ -64,13 +60,9 @@ const elements = {
 renderProfile();
 renderRoom();
 startCountdown();
-initEntryFlow();
-
-document.body.classList.toggle("room-active", Boolean(roomId));
-document.body.classList.toggle("landing-active", !roomId);
 
 if (!roomId) {
-  elements.status.textContent = "입장 대기";
+  location.replace("/");
 } else if (needsServerUrl) {
   elements.status.textContent = "Render 서버 URL 필요";
   showNotice("Netlify 프론트가 연결할 Render 서버 주소를 public/config.js에 설정해야 합니다.");
@@ -365,29 +357,7 @@ function renderProfile() {
 }
 
 function renderRoom() {
-  elements.roomName.textContent = `room: ${roomId || "not joined"}`;
-}
-
-function initEntryFlow() {
-  elements.createRoom.addEventListener("click", () => {
-    enterRoom(`room-${Math.random().toString(36).slice(2, 8)}`);
-  });
-
-  elements.publicRoom.addEventListener("click", () => {
-    enterRoom("public");
-  });
-
-  elements.joinForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const targetRoom = normalizeRoomInput(elements.joinRoomInput.value);
-    if (!targetRoom) {
-      elements.joinRoomInput.focus();
-      showNotice("방 코드를 입력해 주세요.");
-      return;
-    }
-
-    enterRoom(targetRoom);
-  });
+  elements.roomName.textContent = `room: ${roomId}`;
 }
 
 function clearImage() {
@@ -447,19 +417,7 @@ function readRoomId() {
 }
 
 function getInviteUrl() {
-  return `${location.origin}/room/${roomId || "public"}`;
-}
-
-function enterRoom(targetRoom) {
-  location.href = `/room/${normalizeRoomInput(targetRoom)}`;
-}
-
-function normalizeRoomInput(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "")
-    .slice(0, 32);
+  return `${location.origin}/room/${roomId}`;
 }
 
 function pick(list) {

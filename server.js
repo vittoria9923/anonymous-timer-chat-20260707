@@ -35,6 +35,10 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/room/:roomId", (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "chat.html"));
+});
+
 app.get("*", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });

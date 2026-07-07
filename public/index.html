@@ -18,11 +18,11 @@
         <span>Vanish Chat</span>
       </a>
       <nav class="nav-links" aria-label="주요 기능">
-        <a href="#room">Live Room</a>
+        <a href="#enter">Enter</a>
         <a href="#rules">Rules</a>
         <a href="#deploy">Deploy</a>
       </nav>
-      <a class="nav-cta" href="#room">Get Started</a>
+      <a class="nav-cta" href="#enter">Get Started</a>
     </header>
 
     <main>
@@ -111,77 +111,6 @@ io.emit("chat:delete", message.id);</code></pre>
         </div>
       </section>
 
-      <section id="room" class="room-section shell">
-        <div class="section-heading">
-          <span class="badge">Live Room</span>
-          <h2>로그인 없이 바로 입장</h2>
-          <p>프로필은 브라우저 안에서 랜덤으로 생성됩니다. 원하면 언제든 다시 뽑을 수 있습니다.</p>
-          <div class="room-panel">
-            <span id="roomName">room: loading</span>
-            <span id="onlineCount">0명 접속</span>
-            <button id="copyInvite" type="button">초대 링크 복사</button>
-          </div>
-        </div>
-
-        <section class="chat-card" aria-label="채팅방">
-          <header class="chat-header">
-            <div class="profile">
-              <div id="myAvatar" class="avatar" aria-hidden="true"></div>
-              <div>
-                <strong id="myName"></strong>
-                <span id="connectionStatus">연결 중...</span>
-                <em id="myTheme"></em>
-              </div>
-            </div>
-            <div class="header-actions">
-              <button id="adminMode" type="button">관리자</button>
-              <button id="rerollProfile" type="button">프로필 다시 뽑기</button>
-            </div>
-          </header>
-
-          <div id="notice" class="notice" role="status" aria-live="polite"></div>
-          <div id="messages" class="messages" aria-live="polite"></div>
-
-          <form id="chatForm" class="composer">
-            <label class="message-label" for="messageInput">메시지</label>
-            <textarea id="messageInput" rows="2" maxlength="600" placeholder="익명 메시지를 입력하세요"></textarea>
-
-            <div id="imagePreview" class="image-preview" hidden>
-              <img id="previewImg" alt="전송할 이미지 미리보기" />
-              <button id="clearImage" type="button">사진 제거</button>
-            </div>
-
-            <div class="controls">
-              <label class="file-button" for="imageInput">사진 선택</label>
-              <input id="imageInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" />
-
-              <label class="timer-control" for="ttlInput">
-                <span>표시 시간</span>
-                <select id="ttlInput">
-                  <option value="5">5초</option>
-                  <option value="10">10초</option>
-                  <option value="20" selected>20초</option>
-                  <option value="60">1분</option>
-                  <option value="120">2분</option>
-                </select>
-              </label>
-
-              <label class="timer-control" for="styleInput">
-                <span>스타일</span>
-                <select id="styleInput">
-                  <option value="normal" selected>기본</option>
-                  <option value="whisper">속삭임</option>
-                  <option value="question">질문</option>
-                  <option value="warning">경고</option>
-                </select>
-              </label>
-
-              <button class="send-button" type="submit">보내기</button>
-            </div>
-          </form>
-        </section>
-      </section>
-
       <section id="rules" class="feature-grid shell" aria-label="채팅 기능">
         <article class="feature-card yellow-card">
           <span class="feature-index">01</span>
@@ -212,8 +141,6 @@ io.emit("chat:delete", message.id);</code></pre>
       </section>
     </main>
 
-    <script src="/config.js"></script>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="/app.js"></script>
+    <script src="/landing.js"></script>
   </body>
 </html>

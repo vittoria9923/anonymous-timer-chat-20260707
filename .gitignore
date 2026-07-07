@@ -1,0 +1,10 @@
+node_modules/
+.netlify/
+.agents/
+skills-lock.json
+.env
+.DS_Store
+npm-debug.log*
+
+# Local Netlify folder
+.netlify

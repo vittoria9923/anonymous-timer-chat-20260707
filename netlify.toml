@@ -1,0 +1,13 @@
+[build]
+  publish = "public"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Netlify can host only the static frontend in this project.
+# For realtime chat, deploy the Node/Socket.IO server to Render and update public/app.js to connect to that server URL.

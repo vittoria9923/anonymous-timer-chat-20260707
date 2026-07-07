@@ -73,6 +73,25 @@ test("public room supports realtime message, reactions, admin delete, and expiry
   await contextB.close();
 });
 
+test("enter sends chat and shift enter keeps a newline", async ({ browser }) => {
+  const room = `keyboard-${Date.now()}`;
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  await page.goto(`/room/${room}`);
+  await page.locator("#messageInput").fill("keyboard send");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".message", { hasText: "keyboard send" })).toBeVisible();
+  await expect(page.locator("#messageInput")).toHaveValue("");
+
+  await page.locator("#messageInput").fill("first line");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("second line");
+  await expect(page.locator("#messageInput")).toHaveValue("first line\nsecond line");
+
+  await context.close();
+});
+
 test("new browser window gets a fresh anonymous profile", async ({ browser }) => {
   const room = `profile-${Date.now()}`;
   const context = await browser.newContext();

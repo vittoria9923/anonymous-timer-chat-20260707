@@ -247,6 +247,11 @@ elements.imageInput.addEventListener("change", async () => {
 elements.clearImage.addEventListener("click", clearImage);
 elements.closeEmojiPicker.addEventListener("click", closeEmojiPicker);
 elements.emojiSearch.addEventListener("input", () => renderEmojiGrid(elements.emojiSearch.value));
+elements.input.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  sendMessage();
+});
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeEmojiPicker();
 });
@@ -258,7 +263,10 @@ document.addEventListener("click", (event) => {
 
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
+  sendMessage();
+});
 
+function sendMessage() {
   const text = elements.input.value.trim();
   if (!text && !state.image) {
     showNotice("메시지나 사진을 입력해 주세요.");
@@ -289,7 +297,7 @@ elements.form.addEventListener("submit", (event) => {
       elements.input.focus();
     }
   );
-});
+}
 
 function renderMessage(message) {
   if (Date.now() >= message.expiresAt) return;

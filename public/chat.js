@@ -373,10 +373,10 @@ function updateReactions(id, counts) {
 
 function loadProfile() {
   try {
-    const saved = JSON.parse(localStorage.getItem(getActiveProfileKey()));
+    const saved = JSON.parse(sessionStorage.getItem(getActiveProfileKey()));
     if (saved?.name && saved?.avatar && saved?.theme) return saved;
   } catch (_error) {
-    localStorage.removeItem(getActiveProfileKey());
+    sessionStorage.removeItem(getActiveProfileKey());
   }
 
   const profile = createProfile();
@@ -385,7 +385,7 @@ function loadProfile() {
 }
 
 function saveProfile(profile) {
-  localStorage.setItem(getActiveProfileKey(), JSON.stringify(profile));
+  sessionStorage.setItem(getActiveProfileKey(), JSON.stringify(profile));
 }
 
 function getActiveProfileKey() {

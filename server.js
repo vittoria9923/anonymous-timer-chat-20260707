@@ -358,6 +358,4 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-server.listen(PORT, () => {
-  console.log(`Chat server running on port ${PORT}`);
-});
+server.listen(PORT);

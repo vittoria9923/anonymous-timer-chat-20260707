@@ -71,3 +71,23 @@ test("public room supports realtime message, reactions, admin delete, and expiry
   await contextA.close();
   await contextB.close();
 });
+
+test("new browser window gets a fresh anonymous profile", async ({ browser }) => {
+  const room = `profile-${Date.now()}`;
+  const context = await browser.newContext();
+  const pageA = await context.newPage();
+  const pageB = await context.newPage();
+
+  await pageA.goto(`/room/${room}`);
+  await pageB.goto(`/room/${room}`);
+
+  const firstName = await pageA.locator("#myName").textContent();
+  const secondName = await pageB.locator("#myName").textContent();
+
+  expect(firstName).toBeTruthy();
+  expect(secondName).toBeTruthy();
+  expect(secondName).not.toBe(firstName);
+
+  await expect(pageA.locator("#memberList li")).toHaveCount(2);
+  await context.close();
+});

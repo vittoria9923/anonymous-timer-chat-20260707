@@ -410,6 +410,7 @@ function renderProfile() {
 
 function renderRoom() {
   elements.roomName.textContent = `room: ${roomId}`;
+  document.title = `채팅방 | ${roomId}`;
 }
 
 function renderRoomInfo(room) {

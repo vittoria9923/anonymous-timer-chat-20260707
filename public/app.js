@@ -1,6 +1,7 @@
 const chatServerUrl = window.CHAT_SERVER_URL?.trim();
+const roomId = readRoomId();
 const needsServerUrl = !chatServerUrl && location.hostname.endsWith(".netlify.app");
-const socket = needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined);
+const socket = !roomId || needsServerUrl || !window.io ? createOfflineSocket() : io(chatServerUrl || undefined, { auth: { room: roomId } });
 
 const profileKey = "anonymous-chat-profile";
 const names = [
@@ -15,34 +16,61 @@ const names = [
   "반짝 라마",
   "오로라 곰"
 ];
-const avatars = ["🌙", "🦊", "🐳", "🪐", "🍀", "🐧", "🦉", "🧊", "🌈", "⭐"];
+const avatars = ["달", "여우", "고래", "행성", "클로버", "펭귄", "부엉", "얼음", "무지개", "별"];
+const themes = [
+  { label: "low signal", color: "#faff69" },
+  { label: "quiet mode", color: "#e6e6e6" },
+  { label: "last seen", color: "#22c55e" },
+  { label: "redacted", color: "#ef4444" },
+  { label: "snapshot risk", color: "#3b82f6" }
+];
+const reactions = ["ㅋㅋ", "좋아요", "놀람", "비밀"];
 
 const state = {
   profile: loadProfile(),
   image: "",
-  tickTimer: null
+  tickTimer: null,
+  isAdmin: false
 };
 
 const elements = {
+  watermark: document.querySelector("#watermark"),
+  createRoom: document.querySelector("#createRoom"),
+  publicRoom: document.querySelector("#publicRoom"),
+  joinForm: document.querySelector("#joinForm"),
+  joinRoomInput: document.querySelector("#joinRoomInput"),
+  roomName: document.querySelector("#roomName"),
+  onlineCount: document.querySelector("#onlineCount"),
+  copyInvite: document.querySelector("#copyInvite"),
   myName: document.querySelector("#myName"),
   myAvatar: document.querySelector("#myAvatar"),
+  myTheme: document.querySelector("#myTheme"),
   status: document.querySelector("#connectionStatus"),
   reroll: document.querySelector("#rerollProfile"),
+  admin: document.querySelector("#adminMode"),
   notice: document.querySelector("#notice"),
   messages: document.querySelector("#messages"),
   form: document.querySelector("#chatForm"),
   input: document.querySelector("#messageInput"),
   imageInput: document.querySelector("#imageInput"),
   ttl: document.querySelector("#ttlInput"),
+  style: document.querySelector("#styleInput"),
   imagePreview: document.querySelector("#imagePreview"),
   previewImg: document.querySelector("#previewImg"),
   clearImage: document.querySelector("#clearImage")
 };
 
 renderProfile();
+renderRoom();
 startCountdown();
+initEntryFlow();
 
-if (needsServerUrl) {
+document.body.classList.toggle("room-active", Boolean(roomId));
+document.body.classList.toggle("landing-active", !roomId);
+
+if (!roomId) {
+  elements.status.textContent = "입장 대기";
+} else if (needsServerUrl) {
   elements.status.textContent = "Render 서버 URL 필요";
   showNotice("Netlify 프론트가 연결할 Render 서버 주소를 public/config.js에 설정해야 합니다.");
 }
@@ -53,6 +81,15 @@ socket.on("connect", () => {
 
 socket.on("disconnect", () => {
   elements.status.textContent = "연결 끊김";
+});
+
+socket.on("room:info", (room) => {
+  elements.roomName.textContent = `room: ${room.roomId}`;
+  elements.onlineCount.textContent = `${room.memberCount}명 접속`;
+});
+
+socket.on("room:presence", (room) => {
+  elements.onlineCount.textContent = `${room.memberCount}명 접속`;
 });
 
 socket.on("chat:init", (messages) => {
@@ -66,21 +103,58 @@ socket.on("chat:message", (message) => {
   scrollToBottom();
 });
 
-socket.on("chat:delete", (id) => {
-  document.querySelector(`[data-message-id="${CSS.escape(id)}"]`)?.remove();
+socket.on("chat:seen", ({ id, seenCount }) => {
+  const target = getMessage(id)?.querySelector(".seen-count");
+  if (target) target.textContent = `${seenCount}명이 봄`;
 });
 
-socket.on("chat:notice", (text) => {
-  elements.notice.textContent = text;
-  setTimeout(() => {
-    if (elements.notice.textContent === text) elements.notice.textContent = "";
-  }, 2500);
+socket.on("chat:reaction", ({ id, reactions }) => {
+  updateReactions(id, reactions);
+});
+
+socket.on("chat:delete", (id) => {
+  getMessage(id)?.remove();
+});
+
+socket.on("chat:clear", () => {
+  elements.messages.replaceChildren();
+  showNotice("관리자가 방을 초기화했습니다.");
+});
+
+socket.on("chat:notice", showNotice);
+
+elements.copyInvite.addEventListener("click", async () => {
+  await navigator.clipboard.writeText(getInviteUrl());
+  showNotice("초대 링크를 복사했습니다.");
 });
 
 elements.reroll.addEventListener("click", () => {
   state.profile = createProfile();
   localStorage.setItem(profileKey, JSON.stringify(state.profile));
   renderProfile();
+});
+
+elements.admin.addEventListener("click", () => {
+  if (state.isAdmin) {
+    if (!confirm("이 방의 모든 메시지를 삭제할까요?")) return;
+    socket.emit("admin:clear", {}, handleAck("방을 초기화했습니다."));
+    return;
+  }
+
+  const password = prompt("관리자 비밀번호를 입력하세요.");
+  if (!password) return;
+
+  socket.emit("admin:auth", { password }, (response) => {
+    if (!response?.ok) {
+      showNotice(response?.error || "관리자 인증에 실패했습니다.");
+      return;
+    }
+
+    state.isAdmin = true;
+    document.body.classList.add("admin-active");
+    elements.admin.textContent = "방 초기화";
+    showNotice("관리자 모드가 켜졌습니다.");
+  });
 });
 
 elements.imageInput.addEventListener("change", async () => {
@@ -116,6 +190,8 @@ elements.form.addEventListener("submit", (event) => {
     {
       name: state.profile.name,
       avatar: state.profile.avatar,
+      theme: state.profile.theme,
+      style: elements.style.value,
       text,
       image: state.image,
       ttlSeconds: Number(elements.ttl.value)
@@ -137,27 +213,35 @@ elements.form.addEventListener("submit", (event) => {
 function renderMessage(message) {
   if (Date.now() >= message.expiresAt) return;
 
-  const existing = document.querySelector(`[data-message-id="${CSS.escape(message.id)}"]`);
+  const existing = getMessage(message.id);
   if (existing) existing.remove();
 
   const row = document.createElement("article");
-  row.className = `message ${message.senderId === socket.id ? "own" : ""}`;
+  row.className = `message style-${message.style || "normal"} ${message.senderId === socket.id ? "own" : ""}`;
   row.dataset.messageId = message.id;
+  row.dataset.createdAt = String(message.createdAt);
   row.dataset.expiresAt = String(message.expiresAt);
 
   const avatar = document.createElement("div");
   avatar.className = "avatar";
   avatar.textContent = message.avatar;
+  avatar.style.backgroundColor = message.theme?.color || "#faff69";
 
   const body = document.createElement("div");
   body.className = "message-body";
 
   const meta = document.createElement("div");
   meta.className = "message-meta";
-  meta.innerHTML = `<strong></strong><span class="time-left"></span>`;
+  meta.innerHTML = `<strong></strong><span class="style-label"></span><span class="seen-count"></span><span class="time-left"></span>`;
   meta.querySelector("strong").textContent = message.name;
-
+  meta.querySelector(".style-label").textContent = getStyleLabel(message.style);
+  meta.querySelector(".seen-count").textContent = `${message.seenCount || 0}명이 봄`;
   body.append(meta);
+
+  const theme = document.createElement("div");
+  theme.className = "message-theme";
+  theme.textContent = message.theme?.label || "unknown";
+  body.append(theme);
 
   if (message.text) {
     const text = document.createElement("p");
@@ -166,16 +250,54 @@ function renderMessage(message) {
   }
 
   if (message.image) {
+    const imageWrap = document.createElement("div");
+    imageWrap.className = "image-lock locked";
+
     const image = document.createElement("img");
     image.className = "message-img";
     image.src = message.image;
     image.alt = `${message.name}이 보낸 사진`;
-    body.append(image);
+
+    const reveal = document.createElement("button");
+    reveal.type = "button";
+    reveal.textContent = "사진 보기";
+    reveal.addEventListener("click", () => imageWrap.classList.remove("locked"));
+
+    imageWrap.append(image, reveal);
+    body.append(imageWrap);
   }
+
+  const reactionBar = document.createElement("div");
+  reactionBar.className = "reaction-bar";
+  reactions.forEach((emoji) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.emoji = emoji;
+    button.textContent = `${emoji} 0`;
+    button.addEventListener("click", () => socket.emit("chat:react", { id: message.id, emoji }));
+    reactionBar.append(button);
+  });
+  body.append(reactionBar);
+
+  const adminDelete = document.createElement("button");
+  adminDelete.type = "button";
+  adminDelete.className = "admin-delete";
+  adminDelete.textContent = "관리자 삭제";
+  adminDelete.addEventListener("click", () => {
+    socket.emit("admin:delete", { id: message.id }, handleAck("메시지를 삭제했습니다."));
+  });
+  body.append(adminDelete);
+
+  const expiry = document.createElement("div");
+  expiry.className = "expiry-bar";
+  expiry.append(document.createElement("span"));
+  body.append(expiry);
 
   row.append(avatar, body);
   elements.messages.append(row);
+  updateReactions(message.id, message.reactions || {});
   updateCountdown(row);
+  socket.emit("chat:seen", { id: message.id });
 }
 
 function startCountdown() {
@@ -185,21 +307,37 @@ function startCountdown() {
 }
 
 function updateCountdown(row) {
-  const left = Math.ceil((Number(row.dataset.expiresAt) - Date.now()) / 1000);
+  const createdAt = Number(row.dataset.createdAt);
+  const expiresAt = Number(row.dataset.expiresAt);
+  const left = Math.ceil((expiresAt - Date.now()) / 1000);
   if (left <= 0) {
     row.remove();
     return;
   }
+
+  const total = Math.max(1, expiresAt - createdAt);
+  const progress = Math.max(0, Math.min(1, (expiresAt - Date.now()) / total));
+  row.style.setProperty("--progress", progress.toFixed(3));
 
   const target = row.querySelector(".time-left");
   target.textContent = `${left}초 뒤 사라짐`;
   target.classList.toggle("expires-soon", left <= 5);
 }
 
+function updateReactions(id, counts) {
+  const row = getMessage(id);
+  if (!row) return;
+
+  row.querySelectorAll("[data-emoji]").forEach((button) => {
+    const emoji = button.dataset.emoji;
+    button.textContent = `${emoji} ${counts[emoji] || 0}`;
+  });
+}
+
 function loadProfile() {
   try {
     const saved = JSON.parse(localStorage.getItem(profileKey));
-    if (saved?.name && saved?.avatar) return saved;
+    if (saved?.name && saved?.avatar && saved?.theme) return saved;
   } catch (_error) {
     localStorage.removeItem(profileKey);
   }
@@ -212,13 +350,43 @@ function loadProfile() {
 function createProfile() {
   return {
     name: `${pick(names)} #${Math.floor(100 + Math.random() * 900)}`,
-    avatar: pick(avatars)
+    avatar: pick(avatars),
+    theme: pick(themes)
   };
 }
 
 function renderProfile() {
   elements.myName.textContent = state.profile.name;
   elements.myAvatar.textContent = state.profile.avatar;
+  elements.myAvatar.style.backgroundColor = state.profile.theme.color;
+  elements.myTheme.textContent = state.profile.theme.label;
+  elements.watermark.textContent = `${state.profile.name} / ${roomId}`;
+}
+
+function renderRoom() {
+  elements.roomName.textContent = `room: ${roomId || "not joined"}`;
+}
+
+function initEntryFlow() {
+  elements.createRoom.addEventListener("click", () => {
+    enterRoom(`room-${Math.random().toString(36).slice(2, 8)}`);
+  });
+
+  elements.publicRoom.addEventListener("click", () => {
+    enterRoom("public");
+  });
+
+  elements.joinForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const targetRoom = normalizeRoomInput(elements.joinRoomInput.value);
+    if (!targetRoom) {
+      elements.joinRoomInput.focus();
+      showNotice("방 코드를 입력해 주세요.");
+      return;
+    }
+
+    enterRoom(targetRoom);
+  });
 }
 
 function clearImage() {
@@ -244,8 +412,53 @@ function showNotice(text) {
   }, 3000);
 }
 
+function handleAck(successText) {
+  return (response) => {
+    if (!response?.ok) {
+      showNotice(response?.error || "요청을 처리할 수 없습니다.");
+      return;
+    }
+
+    showNotice(successText);
+  };
+}
+
+function getMessage(id) {
+  return document.querySelector(`[data-message-id="${CSS.escape(id)}"]`);
+}
+
 function scrollToBottom() {
   elements.messages.scrollTop = elements.messages.scrollHeight;
+}
+
+function getStyleLabel(style) {
+  return {
+    normal: "기본",
+    whisper: "속삭임",
+    question: "질문",
+    warning: "경고"
+  }[style || "normal"];
+}
+
+function readRoomId() {
+  const match = location.pathname.match(/^\/room\/([a-z0-9-]{3,32})/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
+function getInviteUrl() {
+  return `${location.origin}/room/${roomId || "public"}`;
+}
+
+function enterRoom(targetRoom) {
+  location.href = `/room/${normalizeRoomInput(targetRoom)}`;
+}
+
+function normalizeRoomInput(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
+    .slice(0, 32);
 }
 
 function pick(list) {

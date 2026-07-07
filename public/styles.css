@@ -52,7 +52,8 @@ a {
 
 button,
 textarea,
-select {
+select,
+input {
   font: inherit;
 }
 
@@ -91,9 +92,33 @@ button:disabled {
 .controls,
 .message-meta,
 .terminal-status,
-.image-preview {
+.image-preview,
+.header-actions,
+.room-panel {
   display: flex;
   align-items: center;
+}
+
+.watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(250, 255, 105, 0.025);
+  font-size: clamp(4rem, 14vw, 12rem);
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  text-align: center;
+  pointer-events: none;
+  transform: rotate(-12deg);
+}
+
+.top-nav,
+main {
+  position: relative;
+  z-index: 1;
 }
 
 .brand {
@@ -138,6 +163,16 @@ button:disabled {
   gap: 48px;
   align-items: center;
   padding: 96px 0;
+}
+
+.landing-active .room-section,
+.room-active .hero,
+.room-active .entry-section {
+  display: none;
+}
+
+.room-active .room-section {
+  min-height: calc(100vh - 64px);
 }
 
 .hero-copy h1,
@@ -320,6 +355,77 @@ pre {
   border-top: 1px solid var(--hairline);
 }
 
+.entry-section {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 48px;
+  align-items: start;
+  padding: 0 0 96px;
+}
+
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.entry-card {
+  min-height: 310px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 28px;
+  background: var(--surface-card);
+  display: flex;
+  flex-direction: column;
+}
+
+.entry-card h3 {
+  margin: 56px 0 12px;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.entry-card p {
+  margin: 0 0 24px;
+  color: var(--body);
+  line-height: 1.6;
+}
+
+.entry-card button,
+.join-form button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: var(--primary);
+  color: var(--canvas);
+  font-weight: 700;
+}
+
+.entry-card > button,
+.join-form {
+  margin-top: auto;
+}
+
+.join-form {
+  display: grid;
+  gap: 10px;
+}
+
+.join-form input {
+  height: 42px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--surface-elevated);
+  color: var(--ink);
+  outline: none;
+}
+
+.join-form input:focus {
+  border-color: var(--primary);
+}
+
 .section-heading {
   position: sticky;
   top: 96px;
@@ -334,6 +440,33 @@ pre {
 
 .section-heading p {
   max-width: 430px;
+}
+
+.room-panel {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+  margin-top: 28px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface-card);
+}
+
+.room-panel span {
+  color: var(--body-strong);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.room-panel button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--canvas);
+  font-weight: 700;
 }
 
 .chat-card {
@@ -354,6 +487,12 @@ pre {
   background: var(--canvas);
 }
 
+.header-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .profile {
   gap: 12px;
 }
@@ -366,13 +505,22 @@ pre {
   border-radius: 9999px;
   background: var(--primary);
   color: var(--canvas);
-  font-size: 1.35rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .profile strong,
-.profile span {
+.profile span,
+.profile em {
   display: block;
+}
+
+.profile em {
+  margin-top: 2px;
+  color: var(--primary);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-style: normal;
 }
 
 .profile strong {
@@ -417,6 +565,20 @@ pre {
   background: var(--surface-elevated);
 }
 
+.style-whisper .message-body {
+  border-style: dashed;
+  background: #171717;
+}
+
+.style-question .message-body {
+  border-color: rgba(59, 130, 246, 0.7);
+}
+
+.style-warning .message-body {
+  border-color: rgba(250, 255, 105, 0.8);
+  background: #252515;
+}
+
 .message.own {
   grid-template-columns: 1fr 44px;
 }
@@ -449,14 +611,72 @@ pre {
 .message-meta {
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .message-meta strong {
   color: var(--ink);
 }
 
+.style-label,
+.seen-count,
+.message-theme {
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.message-theme {
+  margin-top: 7px;
+}
+
 .expires-soon {
   color: var(--primary);
+}
+
+.reaction-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reaction-bar button,
+.admin-delete {
+  min-height: 30px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 9999px;
+  padding: 6px 10px;
+  background: var(--surface-card);
+  color: var(--body-strong);
+  font-size: 12px;
+}
+
+.admin-delete {
+  display: none;
+  margin-top: 10px;
+  border-color: rgba(239, 68, 68, 0.65);
+  color: #ffb4b4;
+}
+
+.admin-active .admin-delete {
+  display: inline-flex;
+}
+
+.expiry-bar {
+  height: 3px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--hairline);
+}
+
+.expiry-bar span {
+  display: block;
+  width: calc(var(--progress, 1) * 100%);
+  height: 100%;
+  background: var(--primary);
+  transition: width 450ms linear;
 }
 
 .composer {
@@ -474,7 +694,8 @@ pre {
 }
 
 textarea,
-select {
+select,
+input {
   border: 1px solid var(--hairline-strong);
   border-radius: 8px;
   background: var(--surface-card);
@@ -532,6 +753,33 @@ select {
   border: 1px solid var(--hairline-strong);
   border-radius: 12px;
   object-fit: cover;
+}
+
+.image-lock {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.image-lock.locked .message-img {
+  filter: blur(16px) saturate(0.5);
+}
+
+.image-lock button {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--primary);
+  color: var(--canvas);
+  font-weight: 700;
+}
+
+.image-lock:not(.locked) button {
+  display: none;
 }
 
 .feature-grid {
@@ -597,6 +845,7 @@ select {
 
 @media (max-width: 1024px) {
   .hero,
+  .entry-section,
   .room-section,
   .deploy-band {
     grid-template-columns: 1fr;
@@ -606,6 +855,7 @@ select {
     position: static;
   }
 
+  .entry-grid,
   .feature-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -638,6 +888,7 @@ select {
   }
 
   .stats,
+  .entry-grid,
   .feature-grid {
     grid-template-columns: 1fr;
   }
